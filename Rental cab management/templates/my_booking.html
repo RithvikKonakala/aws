@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bookings - Car Rental Service</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Car Rental</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    {% if session.get('user_id') %}
+                        <li><a href="{{ url_for('car_type') }}">Book a Car</a></li>
+                        <li><a href="{{ url_for('my_bookings') }}">My Bookings</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <h2>My Bookings</h2>
+        
+        {% if bookings %}
+            <table class="bookings-table">
+                <thead>
+                    <tr>
+                        <th>Car Type</th>
+                        <th>Pickup Date</th>
+                        <th>Dropoff Date</th>
+                        <th>Days</th>
+                        <th>Total Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in bookings %}
+                        <tr>
+                            <td>{{ booking.car_type|title }}</td>
+                            <td>{{ booking.pickup }}</td>
+                            <td>{{ booking.dropoff }}</td>
+                            <td>{{ booking.num_days }}</td>
+                            <td>₹{{ booking.total_price }}</td>
+                            <td>{{ booking.status|title }}</td>
+                            <td>
+                                {% if booking.status == 'confirmed' %}
+                                    <form action="{{ url_for('cancel_booking', booking_id=booking.booking_id) }}" method="post">
+                                        <button type="submit" class="btn btn-danger">Cancel</button>
+                                    </form>
+                                {% else %}
+                                    <span>No actions available</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="text-align: center; padding: 2rem;">
+                <p>You don't have any bookings yet.</p>
+                <a href="{{ url_for('car_type') }}" class="btn btn-primary">Book a Car Now</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Car Rental Service. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

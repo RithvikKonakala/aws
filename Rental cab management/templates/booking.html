@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book {{ car_type|title }} - Car Rental Service</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Car Rental</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    {% if session.get('user_id') %}
+                        <li><a href="{{ url_for('car_type') }}">Book a Car</a></li>
+                        <li><a href="{{ url_for('my_bookings') }}">My Bookings</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="form-container" style="max-width: 600px;">
+            <h2>Book Your {{ car_type|title }}</h2>
+            <p style="margin-bottom: 1rem;">Daily Rate: ₹{{ price_per_day }}</p>
+            
+            <form action="{{ url_for('book', car_type=car_type) }}" method="post">
+                <div class="form-group">
+                    <label for="check_in">Pickup Date</label>
+                    <input type="date" id="check_in" name="check_in" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="check_out">Dropoff Date</label>
+                    <input type="date" id="check_out" name="check_out" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="special_requests">Special Requests</label>
+                    <textarea id="special_requests" name="special_requests" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="payment_mode">Payment Mode</label>
+                    <select id="payment_mode" name="payment_mode" class="form-control" required>
+                        <option value="">Select payment method</option>
+                        <option value="credit_card">Credit Card</option>
+                        <option value="debit_card">Debit Card</option>
+                        <option value="upi">UPI</option>
+                        <option value="cash">Cash on Pickup</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Confirm Booking</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Car Rental Service. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Set minimum date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('check_in').setAttribute('min', today);
+        document.getElementById('check_out').setAttribute('min', today);
+        
+        // Ensure check-out date is after check-in date
+        document.getElementById('check_in').addEventListener('change', function() {
+            document.getElementById('check_out').setAttribute('min', this.value);
+        });
+    </script>
+</body>
+</html>

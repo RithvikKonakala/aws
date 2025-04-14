@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Rental Service</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Car Rental</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    {% if session.get('user_id') %}
+                        <li><a href="{{ url_for('car_type') }}">Book a Car</a></li>
+                        <li><a href="{{ url_for('my_bookings') }}">My Bookings</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="hero">
+        <div class="container">
+            <h1>Rent a Car Today</h1>
+            <p>Explore with comfort and style. Book your dream car now!</p>
+            <a href="{{ url_for('car_type') }}" class="btn btn-primary">Book Now</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <section>
+            <h2>Why Choose Us?</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3>Wide Selection</h3>
+                    <p>Choose from sedans, SUVs, and mini campervans for your journey.</p>
+                </div>
+                <div class="feature">
+                    <h3>Affordable Rates</h3>
+                    <p>Get the best prices with our competitive daily rates.</p>
+                </div>
+                <div class="feature">
+                    <h3>Easy Booking</h3>
+                    <p>Simple online booking process with instant confirmation.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Car Rental Service. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

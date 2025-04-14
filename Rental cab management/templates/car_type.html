@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Car Type - Car Rental Service</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Car Rental</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    {% if session.get('user_id') %}
+                        <li><a href="{{ url_for('car_type') }}">Book a Car</a></li>
+                        <li><a href="{{ url_for('my_bookings') }}">My Bookings</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <h2>Select Your Car Type</h2>
+        
+        <div class="car-cards">
+            <div class="car-card">
+                <div class="car-img">Sedan</div>
+                <div class="car-info">
+                    <h3>Sedan</h3>
+                    <p>Comfortable sedan for city travel and short trips.</p>
+                    <div class="price">₹2,500/day</div>
+                    <form action="{{ url_for('car_type') }}" method="post">
+                        <input type="hidden" name="car_type" value="sedan">
+                        <button type="submit" class="btn btn-primary">Select</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="car-card">
+                <div class="car-img">SUV</div>
+                <div class="car-info">
+                    <h3>SUV</h3>
+                    <p>Spacious SUV perfect for family trips and rough terrain.</p>
+                    <div class="price">₹4,000/day</div>
+                    <form action="{{ url_for('car_type') }}" method="post">
+                        <input type="hidden" name="car_type" value="suv">
+                        <button type="submit" class="btn btn-primary">Select</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="car-card">
+                <div class="car-img">Mini Campervan</div>
+                <div class="car-info">
+                    <h3>Mini Campervan</h3>
+                    <p>Compact campervan for adventure seekers and long journeys.</p>
+                    <div class="price">₹6,000/day</div>
+                    <form action="{{ url_for('car_type') }}" method="post">
+                        <input type="hidden" name="car_type" value="mini campervan">
+                        <button type="submit" class="btn btn-primary">Select</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Car Rental Service. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

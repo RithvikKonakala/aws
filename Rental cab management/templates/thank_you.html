@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed - Car Rental Service</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Car Rental</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    {% if session.get('user_id') %}
+                        <li><a href="{{ url_for('car_type') }}">Book a Car</a></li>
+                        <li><a href="{{ url_for('my_bookings') }}">My Bookings</a></li>
+                        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}">Login</a></li>
+                        <li><a href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="form-container" style="text-align: center; max-width: 600px;">
+            <h2>Thank You for Your Booking!</h2>
+            <p style="margin: 1rem 0;">Your car rental has been confirmed. We've sent the details to your registered email address.</p>
+            <div style="margin: 2rem 0;">
+                <a href="{{ url_for('my_bookings') }}" class="btn btn-primary">View My Bookings</a>
+                <a href="{{ url_for('car_type') }}" class="btn">Book Another Car</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Car Rental Service. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
