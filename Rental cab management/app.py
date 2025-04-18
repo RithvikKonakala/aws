@@ -1,20 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from datetime import datetime
+import uuid
+import os
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-import uuid
+from decimal import Decimal
 import json
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
-# Initialize DynamoDB resource
-dynamodb = boto3.resource('dynamodb', region_name='ap-south-1')  # Update to your AWS region
-sns = boto3.client('sns', region_name='ap-south-1')
-
-# DynamoDB Tables
-users_table = dynamodb.Table('Users')  # Ensure the 'Users' table is created in DynamoDB
-bookings_table = dynamodb.Table('Bookings')  # Ensure the 'Bookings' table is created in DynamoDB
+# Initialize DynamoDB client without credentials
+# When running on EC2 with an IAM role, boto3 will automatically use the instance profile credentials
+dynamodb = boto3.resource('dynamodb')
 
 # Global constant for car type prices per day
 PRICE_PER_DAY = {
@@ -22,6 +20,88 @@ PRICE_PER_DAY = {
     'mini campervan': 6000,
     'suv': 4000
 }
+
+def init_db():
+    """Initialize DynamoDB tables if they don't exist"""
+    tables = list(dynamodb.tables.all())
+    table_names = [table.name for table in tables]
+    
+    # Create Users table if it doesn't exist
+    if 'users' not in table_names:
+        users_table = dynamodb.create_table(
+            TableName='users',
+            KeySchema=[
+                {'AttributeName': 'id', 'KeyType': 'HASH'}  # Partition key
+            ],
+            AttributeDefinitions=[
+                {'AttributeName': 'id', 'AttributeType': 'S'},
+                {'AttributeName': 'email', 'AttributeType': 'S'}
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    'IndexName': 'EmailIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'email', 'KeyType': 'HASH'},
+                    ],
+                    'Projection': {
+                        'ProjectionType': 'ALL'
+                    },
+                    'ProvisionedThroughput': {
+                        'ReadCapacityUnits': 5,
+                        'WriteCapacityUnits': 5
+                    }
+                }
+            ],
+            ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        )
+        # Wait until the table exists
+        users_table.meta.client.get_waiter('table_exists').wait(TableName='users')
+        print("users table created successfully!")
+    
+    # Create Bookings table if it doesn't exist
+    if 'Bookings' not in table_names:
+        bookings_table = dynamodb.create_table(
+            TableName='Bookings',
+            KeySchema=[
+                {'AttributeName': 'booking_id', 'KeyType': 'HASH'}  # Partition key
+            ],
+            AttributeDefinitions=[
+                {'AttributeName': 'booking_id', 'AttributeType': 'S'},
+                {'AttributeName': 'user_id', 'AttributeType': 'S'}
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    'IndexName': 'UserIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'user_id', 'KeyType': 'HASH'},
+                    ],
+                    'Projection': {
+                        'ProjectionType': 'ALL'
+                    },
+                    'ProvisionedThroughput': {
+                        'ReadCapacityUnits': 5,
+                        'WriteCapacityUnits': 5
+                    }
+                }
+            ],
+            ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        )
+        # Wait until the table exists
+        bookings_table.meta.client.get_waiter('table_exists').wait(TableName='Bookings')
+        print("Bookings table created successfully!")
+
+# Initialize database when app starts
+try:
+    init_db()
+except Exception as e:
+    print(f"Error initializing database: {str(e)}")
+
+# Helper class to convert DynamoDB items to JSON serializable format
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return float(o)
+        return super(DecimalEncoder, self).default(o)
 
 # Home Route
 @app.route('/')
@@ -38,8 +118,12 @@ def register():
         mobile_number = request.form['mobile_number']
         
         try:
+            # Get the Users table
+            users_table = dynamodb.Table('Users')
+            
             # Check if user already exists
             response = users_table.query(
+                IndexName='EmailIndex',
                 KeyConditionExpression=Key('email').eq(email)
             )
             
@@ -54,11 +138,12 @@ def register():
                     'id': user_id,
                     'name': name,
                     'email': email,
-                    'password': password,  # Note: In production, passwords should be hashed
+                    'password': password,  # In production, use proper password hashing
                     'mobile_number': mobile_number,
                     'created_at': datetime.now().isoformat()
                 }
             )
+            
             flash("Thanks for registering!", "success")
             return redirect(url_for('login'))
         except Exception as e:
@@ -74,12 +159,16 @@ def login():
         password = request.form['password']
         
         try:
+            # Get the Users table
+            users_table = dynamodb.Table('Users')
+            
             # Query for user with email
-            response = users_table.scan(
-                FilterExpression=Attr('email').eq(email) & Attr('password').eq(password)
+            response = users_table.query(
+                IndexName='EmailIndex',
+                KeyConditionExpression=Key('email').eq(email)
             )
             
-            if response['Items']:
+            if response['Items'] and response['Items'][0]['password'] == password:
                 user = response['Items'][0]
                 session['user_id'] = user['id']
                 session['username'] = user['name']
@@ -134,6 +223,9 @@ def book(car_type):
             # Create unique booking ID
             booking_id = str(uuid.uuid4())
             
+            # Get the Bookings table
+            bookings_table = dynamodb.Table('Bookings')
+            
             # Insert booking into DynamoDB
             bookings_table.put_item(
                 Item={
@@ -145,37 +237,22 @@ def book(car_type):
                     'dropoff': check_out,
                     'special_requests': special_requests,
                     'payment_mode': payment_mode,
-                    'total_price': total_price,
+                    'total_price': Decimal(str(total_price)),  # Convert to Decimal for DynamoDB
                     'status': 'confirmed',
                     'created_at': datetime.now().isoformat()
                 }
             )
             
-            # Optional: Send confirmation notification via SNS
-            try:
-                # Get user details to include in notification
-                user_response = users_table.get_item(
-                    Key={'id': user_id}
-                )
-                
-                if 'Item' in user_response:
-                    user = user_response['Item']
-                    # Create the message for SNS
-                    message = f"Booking Confirmation\n\nDear {user['name']},\n\nYour booking for a {car_type} for {num_days} days has been confirmed.\nPickup: {check_in}\nDropoff: {check_out}\nTotal Price: ₹{total_price}\n\nThank you for your business!"
-                    
-                    # Create an SNS topic if you want to use it
-                    # topic = sns.create_topic(Name='BookingConfirmations')
-                    # topic_arn = topic['TopicArn']
-                    
-                    # For direct SMS (if configured and allowed in your region)
-                    # sns.publish(
-                    #     PhoneNumber=user['mobile_number'],
-                    #     Message=message
-                    # )
-            except Exception as e:
-                print(f"Notification error: {e}")
-                # Continue with the booking process even if notification fails
-
+            # Get user details for confirmation message
+            users_table = dynamodb.Table('Users')
+            user_response = users_table.get_item(Key={'id': user_id})
+            
+            if 'Item' in user_response:
+                user = user_response['Item']
+                # Here you would implement any notification logic
+                # In a real app, you might use an email service or SMS gateway
+                print(f"Booking Confirmation for {user['name']}: {car_type} for {num_days} days")
+            
             return redirect(url_for('thank_you'))
 
         except Exception as e:
@@ -196,17 +273,22 @@ def my_bookings():
         return redirect(url_for('login'))
 
     try:
+        # Get the Bookings table
+        bookings_table = dynamodb.Table('Bookings')
+        
         # Query all bookings for the user from DynamoDB
-        response = bookings_table.scan(
-            FilterExpression=Attr('user_id').eq(user_id)
+        response = bookings_table.query(
+            IndexName='UserIdIndex',
+            KeyConditionExpression=Key('user_id').eq(user_id)
         )
         
-        bookings = response['Items']
+        # Convert Decimal types to float for JSON serialization
+        bookings_list = json.loads(json.dumps(response['Items'], cls=DecimalEncoder))
         
-        # Sort bookings by creation date (newest first)
-        bookings.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        # Sort by created_at in descending order
+        bookings_list = sorted(bookings_list, key=lambda x: x.get('created_at', ''), reverse=True)
         
-        return render_template('my_bookings.html', bookings=bookings)
+        return render_template('my_bookings.html', bookings=bookings_list)
     except Exception as e:
         flash(f"Error retrieving bookings: {str(e)}", "danger")
         return render_template('my_bookings.html', bookings=[])
@@ -220,10 +302,11 @@ def cancel_booking(booking_id):
         return redirect(url_for('login'))
     
     try:
+        # Get the Bookings table
+        bookings_table = dynamodb.Table('Bookings')
+        
         # Get the booking to verify it belongs to the user
-        response = bookings_table.get_item(
-            Key={'booking_id': booking_id}
-        )
+        response = bookings_table.get_item(Key={'booking_id': booking_id})
         
         if 'Item' not in response or response['Item']['user_id'] != user_id:
             flash("Unauthorized or booking not found.", "danger")
@@ -245,6 +328,13 @@ def cancel_booking(booking_id):
         flash(f"Error cancelling booking: {str(e)}", "danger")
     
     return redirect(url_for('my_bookings'))
+
+# Add a logout route
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True)
